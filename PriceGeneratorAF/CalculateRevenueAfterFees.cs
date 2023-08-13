@@ -1,56 +1,64 @@
 ﻿using System;
-using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace PriceGeneratorAF;
+namespace Invoiceron.PriceGeneratorAF;
 
 public static class CalculateRevenueAfterFees
 {
     [FunctionName("CalculateRevenueAfterFees")]
     public static async Task<IActionResult> RunAsync(
-        [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log)
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req, ILogger log)
     {
-        log.LogInformation("C# HTTP trigger function processed a request.");
+        //log.LogInformation("C# HTTP trigger function processed a request.");
 
-        string price = req.Query["price"];
-        string percentageFees = req.Query["percentage_fees"];
-        string fixedFees = req.Query["fixed_fees"];
+        decimal price;
+        decimal percentageFees;
+        decimal fixedFees;
 
-        string decimalPlacesToUse = req.Query["decimal_place_usage"];
-
-        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        dynamic data = JsonConvert.DeserializeObject(requestBody);
+        int decimalPlacesToUse;
         
-        price = price ?? data?.price;
-        percentageFees = percentageFees ?? data?.percentageFees;
-        fixedFees = fixedFees ?? data?.fixedFees;
-        decimalPlacesToUse = decimalPlacesToUse ?? data?.decimalPlacesToUse;
-
-        if (fixedFees == null || percentageFees == null || price == null)
+        try
         {
-            return new BadRequestObjectResult("Please pass a parameter on the query string for each required parameter or in the request body");
+            price = decimal.Parse(req.Query["price"]);
+            percentageFees = decimal.Parse(req.Query["percentage_fees"]);
+            fixedFees = decimal.Parse(req.Query["fixed_fees"]);
         }
+        catch
+        {
+            return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
+        }
+
+        #region  Set Default Decimal value if null
+        try
+        {
+            decimalPlacesToUse = int.Parse(req.Query["decimal_places"]);
+        }
+        catch
+        {
+            decimalPlacesToUse = 2;
+        }
+        #endregion
         
+        if(percentageFees > decimal.Parse("2.0"))
+        {
+            percentageFees = decimal.Divide(percentageFees, decimal.Parse("100.0"));
+        }
+
+        //   string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+     
         // ReSharper disable once CommentTypo
         //Use BIDMAS as order of operations
-        var result = (decimal.Parse(price) * (decimal.One - decimal.Parse(percentageFees)) - decimal.Parse(fixedFees));
-
-        int decimals = int.Parse(decimalPlacesToUse) != null ? int.Parse(decimalPlacesToUse) : 2;
+        var result = decimal.Subtract(decimal.Multiply(price, (decimal.One - percentageFees)), fixedFees);
         
-        result = Math.Round(result, decimals, MidpointRounding.AwayFromZero);
+        result = Math.Round(result, decimalPlacesToUse, MidpointRounding.AwayFromZero);
         
-        return result != null
-            ? (ActionResult)new OkObjectResult($"{result}")
-            : new BadRequestObjectResult("Please pass a name on the query string or in the request body");
-        
+        return (ActionResult)new OkObjectResult($"{result}");
     }
 }
