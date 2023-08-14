@@ -14,43 +14,35 @@ public static class GeneratePriceAfterFees
 {
     [FunctionName("GeneratePriceAfterFees")]
     public static async Task<IActionResult> RunAsync(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req, ILogger log)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "GeneratePriceAfterFees")] HttpRequest req, ILogger log)
     {
-        string m_goalPrice;
-        string m_percentageFees;
-        string m_fixedFees;
-        string m_decimals;
+        string mGoalPrice;
+        string mPercentageFees;
+        string mFixedFees;
+        string mDecimals;
 
         int decimalPlacesToUse;
         
-        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-        dynamic data = JsonConvert.DeserializeObject(requestBody);
-        
         try
         {
-            m_goalPrice = req.Query["goal_price"];
-            m_percentageFees = req.Query["percentage_fees"];
-            m_fixedFees = req.Query["fixed_fees"];
-            m_decimals = req.Query["decimal_places"];
-            
-            m_goalPrice = m_goalPrice ?? data?.goalPrice;
-            m_percentageFees = m_percentageFees ?? data?.percentageFees;
-            m_fixedFees = m_fixedFees ?? data?.fixedFees;
-            m_decimals = m_decimals ?? data?.decimalPlacesToUse;
+            mGoalPrice = req.Query["goal_price"];
+            mPercentageFees = req.Query["percentage_fees"];
+            mFixedFees = req.Query["fixed_fees"];
+            mDecimals = req.Query["decimal_places"];
         }
         catch
         {
             return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
         }
         
-        decimal goalPrice = decimal.Parse(m_goalPrice);
-        decimal percentageFees = decimal.Parse(m_percentageFees);
-        decimal fixedFees = decimal.Parse(m_fixedFees);
+        decimal goalPrice = decimal.Parse(mGoalPrice);
+        decimal percentageFees = decimal.Parse(mPercentageFees);
+        decimal fixedFees = decimal.Parse(mFixedFees);
 
         #region  Set Default Decimal value if null
         try
         {
-            decimalPlacesToUse = int.Parse(m_decimals);
+            decimalPlacesToUse = int.Parse(mDecimals);
         }
         catch
         {
@@ -61,7 +53,7 @@ public static class GeneratePriceAfterFees
         #region Format percentages which are not multipliers
         if (percentageFees > decimal.Parse("1.99"))
         {
-            percentageFees = decimal.Subtract(decimal.One, percentageFees);
+            percentageFees = decimal.Divide(percentageFees, decimal.Parse("100.0"));
         }
         #endregion
         
