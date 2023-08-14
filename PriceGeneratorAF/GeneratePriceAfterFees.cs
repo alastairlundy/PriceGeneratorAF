@@ -1,58 +1,75 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Internal;
-using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace PriceGeneratorAF;
+namespace Invoiceron.PriceGeneratorAF;
 
 public static class GeneratePriceAfterFees
 {
     [FunctionName("GeneratePriceAfterFees")]
     public static async Task<IActionResult> RunAsync(
-        [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req, ILogger log)
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req, ILogger log)
     {
-        log.LogInformation("C# HTTP trigger function processed a request.");
+        string m_goalPrice;
+        string m_percentageFees;
+        string m_fixedFees;
+        string m_decimals;
 
-        string goalPrice = req.Query["goal_price"];
-        string percentageFees = req.Query["percentage_fees"];
-        string fixedFees = req.Query["fixed_fees"];
-        string decimalPlacesToUse = req.Query["decimal_place_usage"];
+        int decimalPlacesToUse;
         
         string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
         dynamic data = JsonConvert.DeserializeObject(requestBody);
         
-        goalPrice = goalPrice ?? data?.goalPrice;
-        percentageFees = percentageFees ?? data?.percentageFees;
-        fixedFees = fixedFees ?? data?.fixedFees;
-        decimalPlacesToUse = decimalPlacesToUse ?? data?.decimalPlacesToUse;
-        
-        decimal newPercentage;
-        
-        if (decimal.Parse(percentageFees) > 1)
+        try
         {
-            newPercentage = decimal.One - decimal.Parse(percentageFees);
+            m_goalPrice = req.Query["goal_price"];
+            m_percentageFees = req.Query["percentage_fees"];
+            m_fixedFees = req.Query["fixed_fees"];
+            m_decimals = req.Query["decimal_places"];
+            
+            m_goalPrice = m_goalPrice ?? data?.goalPrice;
+            m_percentageFees = m_percentageFees ?? data?.percentageFees;
+            m_fixedFees = m_fixedFees ?? data?.fixedFees;
+            m_decimals = m_decimals ?? data?.decimalPlacesToUse;
         }
-        else
+        catch
         {
-            newPercentage = decimal.Parse(percentageFees);
+            return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
         }
         
-        int decimals = int.Parse(decimalPlacesToUse) != null ? int.Parse(decimalPlacesToUse) : 2;
+        decimal goalPrice = decimal.Parse(m_goalPrice);
+        decimal percentageFees = decimal.Parse(m_percentageFees);
+        decimal fixedFees = decimal.Parse(m_fixedFees);
+
+        #region  Set Default Decimal value if null
+        try
+        {
+            decimalPlacesToUse = int.Parse(m_decimals);
+        }
+        catch
+        {
+            decimalPlacesToUse = 2;
+        }
+        #endregion
         
-        var result = decimal.Parse(goalPrice + fixedFees) / newPercentage;
+        #region Format percentages which are not multipliers
+        if (percentageFees > decimal.Parse("1.99"))
+        {
+            percentageFees = decimal.Subtract(decimal.One, percentageFees);
+        }
+        #endregion
         
-        result = Math.Round(result, decimals, MidpointRounding.AwayFromZero);
+        var result = decimal.Divide(decimal.Add(goalPrice, fixedFees), percentageFees);
         
-        return result != null
-            ? (ActionResult)new OkObjectResult($"{result}")
-            : new BadRequestObjectResult("Please pass a name on the query string or in the request body");
+        result = Math.Round(result, decimalPlacesToUse, MidpointRounding.AwayFromZero);
+        
+        return (ActionResult)new OkObjectResult($"{result}");
         
     }
 }

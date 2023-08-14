@@ -16,29 +16,41 @@ public static class CalculateRevenueAfterFees
     public static async Task<IActionResult> RunAsync(
         [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req, ILogger log)
     {
-        //log.LogInformation("C# HTTP trigger function processed a request.");
-
-        decimal price;
-        decimal percentageFees;
-        decimal fixedFees;
+        string m_price;
+        string m_percentageFees;
+        string m_fixedFees;
+        string m_decimals;
 
         int decimalPlacesToUse;
         
+        string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+        dynamic data = JsonConvert.DeserializeObject(requestBody);
+        
         try
         {
-            price = decimal.Parse(req.Query["price"]);
-            percentageFees = decimal.Parse(req.Query["percentage_fees"]);
-            fixedFees = decimal.Parse(req.Query["fixed_fees"]);
+            m_price = req.Query["price"];
+            m_percentageFees = req.Query["percentage_fees"];
+            m_fixedFees = req.Query["fixed_fees"];
+            m_decimals = req.Query["decimal_places"];
+            
+            m_price = m_price ?? data?.goalPrice;
+            m_percentageFees = m_percentageFees ?? data?.percentageFees;
+            m_fixedFees = m_fixedFees ?? data?.fixedFees;
+            m_decimals = m_decimals ?? data?.decimalPlacesToUse;
         }
         catch
         {
             return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
         }
 
+        decimal price = decimal.Parse(m_price);
+        decimal percentageFees = decimal.Parse(m_percentageFees);
+        decimal fixedFees = decimal.Parse(m_fixedFees);
+        
         #region  Set Default Decimal value if null
         try
         {
-            decimalPlacesToUse = int.Parse(req.Query["decimal_places"]);
+            decimalPlacesToUse = int.Parse(m_decimals);
         }
         catch
         {
@@ -46,11 +58,13 @@ public static class CalculateRevenueAfterFees
         }
         #endregion
         
-        if(percentageFees > decimal.Parse("2.0"))
+        #region Format percentages which are not multipliers
+        if (percentageFees > decimal.Parse("1.99"))
         {
-            percentageFees = decimal.Divide(percentageFees, decimal.Parse("100.0"));
+            percentageFees = decimal.Subtract(decimal.One, percentageFees);
         }
-
+        #endregion
+        
         //   string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
      
         // ReSharper disable once CommentTypo
