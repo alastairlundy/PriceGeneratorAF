@@ -28,11 +28,19 @@ public static class GeneratePriceAfterFees
             mGoalPrice = req.Query["goal_price"];
             mPercentageFees = req.Query["percentage_fees"];
             mFixedFees = req.Query["fixed_fees"];
-            mDecimals = req.Query["decimal_places"];
         }
         catch
         {
             return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
+        }
+
+        try
+        {
+            mDecimals = req.Query["decimal_places"];
+        }
+        catch
+        {
+            mDecimals = decimal.Parse("2").ToString();
         }
         
         decimal goalPrice = decimal.Parse(mGoalPrice);
@@ -50,14 +58,7 @@ public static class GeneratePriceAfterFees
         }
         #endregion
         
-        #region Format percentages which are not multipliers
-        if (percentageFees > decimal.Parse("1.99"))
-        {
-            percentageFees = decimal.Divide(percentageFees, decimal.Parse("100.0"));
-        }
-        #endregion
-        
-        var result = decimal.Divide(decimal.Add(goalPrice, fixedFees), percentageFees);
+        var result = decimal.Add(goalPrice, fixedFees) / (decimal.One - (percentageFees / 100));
         
         result = Math.Round(result, decimalPlacesToUse, MidpointRounding.AwayFromZero);
         

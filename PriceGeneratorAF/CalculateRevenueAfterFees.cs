@@ -27,13 +27,14 @@ public static class CalculateRevenueAfterFees
         {
             mPrice = req.Query["price"];
             mPercentageFees = req.Query["percentage_fees"];
-            mFixedFees = req.Query["fixed_fees"];
-            mDecimals = req.Query["decimal_places"];
+            mFixedFees = req.Query["fixed_fees"]; 
         }
         catch
         {
             return new BadRequestObjectResult("Please pass the specified parameters on the query string.");
         }
+        
+        
 
         decimal price = decimal.Parse(mPrice);
         decimal percentageFees = decimal.Parse(mPercentageFees);
@@ -42,7 +43,7 @@ public static class CalculateRevenueAfterFees
         #region  Set Default Decimal value if null
         try
         {
-            decimalPlacesToUse = int.Parse(mDecimals);
+            decimalPlacesToUse = int.Parse(req.Query["decimal_places"]);
         }
         catch
         {
@@ -50,18 +51,13 @@ public static class CalculateRevenueAfterFees
         }
         #endregion
         
-        #region Format percentages which are not multipliers
-        if (percentageFees > decimal.Parse("1.99"))
-        {
-            percentageFees = decimal.Divide(percentageFees, decimal.Parse($"100.0"));
-        }
-        #endregion
-        
         //   string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
      
         // ReSharper disable once CommentTypo
         //Use BIDMAS as order of operations
-        var result = decimal.Subtract(decimal.Multiply(price, (decimal.One - percentageFees)), fixedFees);
+        var result = price * (decimal.One - (percentageFees / 100));
+
+        result = result - fixedFees;
         
         result = Math.Round(result, decimalPlacesToUse, MidpointRounding.AwayFromZero);
         
