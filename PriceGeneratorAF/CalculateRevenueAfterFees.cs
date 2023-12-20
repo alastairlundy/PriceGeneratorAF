@@ -8,7 +8,7 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-namespace Invoiceron.PriceGeneratorAF;
+namespace AlastairLundy.PriceGeneratorAF;
 
 public static class CalculateRevenueAfterFees
 {
