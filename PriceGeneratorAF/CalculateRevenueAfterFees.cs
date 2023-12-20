@@ -35,6 +35,14 @@ public static class CalculateRevenueAfterFees
         }
         
         
+        try
+        {
+            mDecimals = req.Query["decimal_places"];
+        }
+        catch
+        {
+            mDecimals = decimal.Parse("2").ToString();
+        }
 
         decimal price = decimal.Parse(mPrice);
         decimal percentageFees = decimal.Parse(mPercentageFees);
@@ -43,7 +51,7 @@ public static class CalculateRevenueAfterFees
         #region  Set Default Decimal value if null
         try
         {
-            decimalPlacesToUse = int.Parse(req.Query["decimal_places"]);
+            decimalPlacesToUse = int.Parse(mDecimals);
         }
         catch
         {
